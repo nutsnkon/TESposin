@@ -1,0 +1,133 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ร้านไลฟ์สด</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{--ink:#14262b;--bg:#f3f6f6;--card:#fff;--pri:#0f5257;--acc:#f2b705;--mut:#6b7c80;--line:#d9e2e3}
+*{box-sizing:border-box}body{margin:0;font-family:'Noto Sans Thai Looped',sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--pri);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;position:sticky;top:0;z-index:5}
+header a{color:#fff;margin-left:14px;text-decoration:none;font-size:14px}main{max-width:760px;margin:auto;padding:16px 16px 100px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.c{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.p{font-size:46px;text-align:center;height:90px;display:flex;align-items:center;justify-content:center}.p img{max-width:100%;max-height:90px;border-radius:6px}
+button,.b{font:inherit;background:var(--pri);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+button.s{background:#e4ecec;color:var(--ink)}button.a{background:var(--acc);color:#14262b;font-weight:700}
+input,select,textarea{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin:4px 0 10px;background:#fff}
+input[type=color]{padding:2px;height:40px}input[type=range]{padding:0}
+.q{display:flex;align-items:center;justify-content:space-between;margin-top:8px}.q button{padding:4px 12px}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+canvas{width:100%;max-width:420px;display:block;margin:auto;background:repeating-conic-gradient(#e9eff0 0 25%,#fff 0 50%) 0 0/20px 20px;border-radius:10px;touch-action:none}
+.st{display:flex;gap:6px;flex-wrap:wrap}.st button{padding:6px 10px;font-size:20px}
+.step{display:flex;gap:6px;margin-bottom:14px;font-size:13px}.step span{flex:1;padding:6px;text-align:center;border-radius:6px;background:#e4ecec;color:var(--mut)}.step .on{background:var(--acc);color:#14262b;font-weight:700}
+.tag{display:inline-block;padding:2px 10px;border-radius:99px;background:#e4ecec;font-size:13px}h2{margin:6px 0 12px}small,.m{color:var(--mut)}
+table{width:100%;border-collapse:collapse}td{padding:6px 0;vertical-align:top}.bank td{font-size:14px;border-bottom:1px solid var(--line)}
+</style></head><body>
+<header><b>🛍 ร้านไลฟ์สด</b><nav><a href="#/">สั่งซื้อ</a><a href="#/track">ติดตามพัสดุ</a></nav></header>
+<main id="app"></main>
+<script>
+// ===== ตั้งค่า 2 ค่านี้ก่อนใช้งาน (Supabase > Project Settings > API) =====
+const SB_URL='https://ytbypbhnamedukvzamsn.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0YnlwYmhuYW1lZHVrdnphbXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwOTgyNjUsImV4cCI6MjEwODY3NDI2NX0.hHGmb6kyqinHgFrhwvknMVGrho86K4cBxPyYlWxLx8c'; // anon public เท่านั้น ห้ามใช้ service_role
+const PROMPTPAY='0917319153';
+const BANKS=[['ttb ทหารไทยธนชาติ','363-7-13654-4'],['กสิกรไทย','136-3-73246-8'],['กรุงไทย','507-3-46428-1'],['ไทยพาณิชย์ SCB','732-2-58280-3']];
+const ST={pending:'รอชำระเงิน',paid:'ชำระแล้ว',checking:'รอตรวจสลิป',making:'กำลังผลิต',shipped:'จัดส่งแล้ว',done:'สำเร็จ'};
+const $=s=>document.querySelector(s),baht=n=>Number(n).toLocaleString('th-TH',{minimumFractionDigits:2});
+const S={step:0,prods:[],cart:{},tok:localStorage.tok||'',D:{color:'#ffffff',items:[{t:'text',v:'',c:'#14262b',s:56,x:300,y:300},{t:'img',img:null,s:300,x:300,y:300}]}};
+async function api(p,o={}){const h={apikey:SB_KEY,Authorization:'Bearer '+(o.tok||SB_KEY),...(o.headers||{})};if(o.json){h['Content-Type']='application/json';o.body=JSON.stringify(o.json)}
+ const r=await fetch(SB_URL+p,{method:o.method,body:o.body,headers:h});const t=await r.text();let j={};try{j=t?JSON.parse(t):{}}catch(_){}
+ if(!r.ok)throw new Error(j.message||j.msg||j.error_description||'เกิดข้อผิดพลาด ('+r.status+')');return j}
+async function up(blob){const k=crypto.randomUUID()+'.'+(blob.type||'image/png').split('/')[1];
+ const r=await fetch(SB_URL+'/storage/v1/object/uploads/'+k,{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':blob.type||'image/png'},body:blob});
+ if(!r.ok)throw new Error('อัปโหลดรูปไม่สำเร็จ (ไฟล์ต้องเป็น PNG/JPG/WEBP ไม่เกิน 5MB)');return SB_URL+'/storage/v1/object/public/uploads/'+k}
+window.dl=async(u,n)=>{const b=await (await fetch(u)).blob(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click()};
+const total=()=>S.prods.reduce((a,p)=>a+(S.cart[p.id]||0)*p.price,0);
+const lines=()=>S.prods.filter(p=>S.cart[p.id]).map(p=>({name:p.name,qty:S.cart[p.id],price:p.price}));
+const pic=p=>/^http|^\//.test(p.img||'')?`<img src="${p.img}">`:(p.img||'📦');
+function steps(){return `<div class="step">${['1 เลือกสินค้า','2 ออกแบบ','3 ชำระเงิน'].map((t,i)=>`<span class="${i==S.step?'on':''}">${t}</span>`).join('')}</div>`}
+function route(){const h=location.hash;if(h=='#/track')track();else if(h=='#/admin')admin();else shop()}
+addEventListener('hashchange',route);
+
+/* ---------- 1 เลือกสินค้า ---------- */
+async function shop(){
+ if(S.step==1)return design();if(S.step==2)return pay();
+ $('#app').innerHTML=steps()+'<h2>เลือกสินค้า</h2><div id="gl" class="m">กำลังโหลด…</div>';
+ try{S.prods=await api('/rest/v1/products?active=eq.true&order=name')}catch(e){$('#gl').textContent=e.message;return}
+ const draw=()=>{$('#gl').outerHTML=`<div id="gl" class="g">${S.prods.map(p=>`<div class="c"><div class="p">${pic(p)}</div><b>${p.name}</b><div class="m">฿${baht(p.price)}</div><div class="q"><button class="s" onclick="qty('${p.id}',-1)">−</button><b>${S.cart[p.id]||0}</b><button class="s" onclick="qty('${p.id}',1)">+</button></div></div>`).join('')||'ยังไม่มีสินค้า'}</div>
+ <div class="bar"><div>รวม <b>฿${baht(total())}</b></div><button class="a" ${total()?'':'disabled'} onclick="S.step=1;route()">ถัดไป: ออกแบบ</button></div>`};
+ window.qty=(id,d)=>{S.cart[id]=Math.max(0,(S.cart[id]||0)+d);document.querySelector('.bar')?.remove();$('#gl').outerHTML='<div id="gl"></div>';draw()};draw()}
+
+/* ---------- 2 ออกแบบลาย ---------- */
+const STK=['❤️','⭐','🌸','🐶','🐱','🔥','🌈','👑','🎀','☕'];
+function design(){const D=S.D;
+ $('#app').innerHTML=steps()+`<h2>ออกแบบลายสินค้า</h2><canvas id="cv" width="600" height="600"></canvas><p class="m" style="text-align:center">ลากข้อความ/รูป/สติกเกอร์บนภาพเพื่อจัดตำแหน่ง</p>
+ <div class="c"><label>สีสินค้า (ตัวอย่าง)</label><input type="color" value="${D.color}" oninput="S.D.color=this.value;dr()">
+ <label>พิมพ์ข้อความ</label><input value="${D.items[0].v}" placeholder="เช่น ชื่อ หรือคำอวยพร" oninput="S.D.items[0].v=this.value;dr()">
+ <div style="display:flex;gap:8px"><div style="flex:1"><label>สีตัวอักษร</label><input type="color" value="${D.items[0].c}" oninput="S.D.items[0].c=this.value;dr()"></div><div style="flex:1"><label>ขนาด</label><input type="range" min="20" max="140" value="${D.items[0].s}" oninput="S.D.items[0].s=+this.value;dr()"></div></div>
+ <label>อัปโหลดรูป</label><input type="file" accept="image/*" onchange="upImg(this)"><label>ขนาดรูป</label><input type="range" min="80" max="560" value="${D.items[1].s}" oninput="S.D.items[1].s=+this.value;dr()">
+ <label>ลายสำเร็จรูป</label><div class="st">${STK.map(e=>`<button class="s" onclick="addS('${e}')">${e}</button>`).join('')}<button class="s" onclick="S.D.items=S.D.items.filter(i=>i.t!='stk');dr()">ล้างลาย</button></div></div>
+ <div class="bar"><button class="s" onclick="S.step=0;route()">ย้อนกลับ</button><button class="a" onclick="S.step=2;route()">ถัดไป: ชำระเงิน</button></div>`;
+ const cv=$('#cv');let cur=null;const pt=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)*600/r.width,(e.clientY-r.top)*600/r.height]};
+ cv.onpointerdown=e=>{const[x,y]=pt(e);let best=1e9;cur=null;D.items.forEach(i=>{if(i.t=='text'&&!i.v||i.t=='img'&&!i.img)return;const d=Math.hypot(i.x-x,i.y-y);if(d<best&&d<260){best=d;cur=i}});cv.setPointerCapture(e.pointerId)};
+ cv.onpointermove=e=>{if(!cur)return;[cur.x,cur.y]=pt(e);dr()};cv.onpointerup=()=>cur=null;dr()}
+function render(c,bg){const x=c.getContext('2d'),D=S.D;x.clearRect(0,0,600,600);
+ if(bg){x.fillStyle=D.color;x.beginPath();x.roundRect(60,60,480,480,40);x.fill();x.strokeStyle='#0002';x.lineWidth=4;x.stroke()}
+ x.textAlign='center';x.textBaseline='middle';
+ D.items.forEach(i=>{if(i.t=='text'&&i.v){x.fillStyle=i.c;x.font=`700 ${i.s}px 'Noto Sans Thai Looped',sans-serif`;x.fillText(i.v,i.x,i.y)}
+  else if(i.t=='img'&&i.img){const k=i.s/Math.max(i.img.width,i.img.height);x.drawImage(i.img,i.x-i.img.width*k/2,i.y-i.img.height*k/2,i.img.width*k,i.img.height*k)}
+  else if(i.t=='stk'){x.font='90px sans-serif';x.fillText(i.e,i.x,i.y)}})}
+window.dr=()=>render($('#cv'),true);
+window.addS=e=>{S.D.items.push({t:'stk',e,x:150+Math.random()*300,y:150+Math.random()*300});dr()};
+window.upImg=el=>{const f=el.files[0];if(!f)return;const im=new Image();im.onload=()=>{S.D.items[1].img=im;dr()};im.src=URL.createObjectURL(f)};
+
+/* ---------- 3 ที่อยู่ + ชำระเงิน ---------- */
+function crc(s){let c=0xFFFF;for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++)c=c&0x8000?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF}return c.toString(16).toUpperCase().padStart(4,'0')}
+function ppay(id,amt){const f=(k,v)=>k+String(v.length).padStart(2,'0')+v,t='0066'+id.slice(1);
+ const s=f('00','01')+f('01','12')+f('29',f('00','A000000677010111')+f('01',t))+f('53','764')+f('54',amt.toFixed(2))+f('58','TH')+'6304';return s+crc(s)}
+function pay(){const T=total();
+ $('#app').innerHTML=steps()+`<h2>ที่อยู่จัดส่งและชำระเงิน</h2><div class="c"><label>ชื่อผู้รับ</label><input id="nm"><label>เบอร์โทรศัพท์</label><input id="ph" inputmode="tel"><label>ที่อยู่จัดส่ง</label><textarea id="ad" rows="3"></textarea><label>หมายเหตุ (ถ้ามี)</label><input id="nt"></div>
+ <div class="c" style="margin-top:12px"><b>รายการสั่งซื้อ</b><table>${lines().map(l=>`<tr><td>${l.name} ×${l.qty}</td><td align="right">฿${baht(l.qty*l.price)}</td></tr>`).join('')}<tr><td><b>ยอดที่ต้องชำระ</b></td><td align="right"><b>฿${baht(T)}</b></td></tr></table>
+ <div style="text-align:center;margin:12px 0"><div id="qr" style="display:inline-block;padding:10px;background:#fff"></div><div><b>พร้อมเพย์ ${PROMPTPAY}</b><br>ชัชวาล มังคละ · ยอด ฿${baht(T)}</div></div>
+ <table class="bank">${BANKS.map(b=>`<tr><td>${b[0]}</td><td align="right"><b>${b[1]}</b></td></tr>`).join('')}</table><small>ชื่อบัญชี ชัชวาล มังคละ</small></div>
+ <div class="c" style="margin-top:12px"><label>แนบสลิปการโอนเงิน</label><input id="sl" type="file" accept="image/*"><div id="er" style="color:#b3261e"></div></div>
+ <div class="bar"><button class="s" onclick="S.step=1;route()">ย้อนกลับ</button><button class="a" id="ok" onclick="submitOrder()">ยืนยันสั่งซื้อ</button></div>`;
+ new QRCode($('#qr'),{text:ppay(PROMPTPAY,T),width:200,height:200})}
+window.submitOrder=async()=>{const g=i=>$('#'+i).value.trim(),ph=g('ph').replace(/\D/g,''),sl=$('#sl').files[0],er=$('#er');
+ if(!g('nm')||ph.length<9||!g('ad'))return er.textContent='กรอกชื่อ เบอร์โทร และที่อยู่ให้ครบ';if(!sl)return er.textContent='แนบสลิปก่อนยืนยัน';
+ $('#ok').disabled=true;$('#ok').textContent='กำลังส่ง…';er.textContent='';
+ const code='LV'+Math.floor(100000+Math.random()*900000);
+ const c=document.createElement('canvas');c.width=c.height=600;render(c,false);const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+ try{const[slip_url,design_url]=await Promise.all([up(sl,'slip'),up(blob,'design.png')]);
+  await api('/rest/v1/orders',{method:'POST',headers:{Prefer:'return=minimal'},json:{code,name:g('nm'),phone:ph,address:g('ad'),note:g('nt'),total:total(),items:lines(),slip_url,design_url}});
+  const v=await api('/functions/v1/verify-slip',{method:'POST',json:{code,phone:ph}}).catch(()=>({note:'รอผู้ขายตรวจสลิป'}));
+  localStorage.last=JSON.stringify({code,phone:ph});S.cart={};S.step=0;
+  $('#app').innerHTML=`<div class="c" style="text-align:center"><div style="font-size:48px">✅</div><h2>สั่งซื้อสำเร็จ</h2><p>เลขที่คำสั่งซื้อ<br><b style="font-size:28px">${code}</b></p><p class="m">เก็บเลขนี้ไว้คู่กับเบอร์ ${ph}<br>สถานะสลิป: ${v.note}</p><a class="b" href="#/track">ติดตามพัสดุ</a></div>`}
+ catch(e){er.textContent=e.message;$('#ok').disabled=false;$('#ok').textContent='ยืนยันสั่งซื้อ'}}
+
+/* ---------- ติดตามพัสดุ (Guest) ---------- */
+function track(){const l=JSON.parse(localStorage.last||'{}');
+ $('#app').innerHTML=`<h2>ติดตามพัสดุ</h2><div class="c"><label>เลขที่คำสั่งซื้อ</label><input id="tc" value="${l.code||''}" placeholder="LV123456"><label>เบอร์โทรศัพท์</label><input id="tp" value="${l.phone||''}" inputmode="tel"><button onclick="doTrack()">ค้นหา</button></div><div id="tr"></div>`;if(l.code)doTrack()}
+window.doTrack=async()=>{const c=$('#tc').value.trim(),p=$('#tp').value.replace(/\D/g,'');
+ try{const o=await api('/rest/v1/rpc/track_order',{method:'POST',json:{p_code:c,p_phone:p}}),keys=Object.keys(ST);
+  $('#tr').innerHTML=`<div class="c" style="margin-top:12px"><b>${o.code}</b> <span class="tag">${ST[o.status]||o.status}</span><div class="step" style="margin-top:10px">${['pending','paid','making','shipped','done'].map(k=>`<span class="${keys.indexOf(k)<=keys.indexOf(o.status)?'on':''}">${ST[k]}</span>`).join('')}</div>
+  ${o.tracking?`<p>เลขพัสดุ: <b>${o.tracking}</b></p>`:'<p class="m">ยังไม่มีเลขพัสดุ</p>'}<table>${o.items.map(i=>`<tr><td>${i.name} ×${i.qty}</td></tr>`).join('')}</table><b>รวม ฿${baht(o.total)}</b></div>`}
+ catch(e){$('#tr').innerHTML=`<p style="color:#b3261e">${e.message}</p>`}}
+
+/* ---------- หลังบ้านผู้ขาย ---------- */
+async function admin(){
+ if(!S.tok)return $('#app').innerHTML=`<h2>เข้าสู่ระบบผู้ขาย</h2><div class="c"><label>อีเมล</label><input id="ae"><label>รหัสผ่าน</label><input id="ap" type="password"><button onclick="login()">เข้าสู่ระบบ</button><div id="er" style="color:#b3261e"></div></div>`;
+ $('#app').innerHTML='<h2>ออเดอร์</h2><div id="ol" class="m">กำลังโหลด…</div><h2>สินค้า</h2><div id="pl"></div>';
+ try{const o=await api('/rest/v1/orders?order=created_at.desc&limit=100',{tok:S.tok});
+  $('#ol').outerHTML=`<div id="ol">${o.map(r=>`<div class="c" style="margin-bottom:10px"><b>${r.code}</b> <span class="tag">${ST[r.status]||r.status}</span> <small>${new Date(r.created_at).toLocaleString('th-TH')}</small>
+  <div>${r.name} · ${r.phone}</div><small>${r.address}${r.note?'<br>หมายเหตุ: '+r.note:''}</small>
+  <div>${(r.items||[]).map(i=>i.name+' ×'+i.qty).join(', ')} · <b>฿${baht(r.total)}</b></div><small>สลิป: ${r.slip_note||'-'}</small>
+  <div style="margin:8px 0">${r.slip_url?`<a href="${r.slip_url}" target="_blank">ดูสลิป</a> · `:''}${r.design_url?`<a href="#" onclick="dl('${r.design_url}','${r.code}-design.png');return false">⬇ ดาวน์โหลดลายพิมพ์</a>`:''}</div>
+  <select id="s${r.id}">${Object.entries(ST).map(([k,v])=>`<option value="${k}" ${k==r.status?'selected':''}>${v}</option>`).join('')}</select><input id="t${r.id}" value="${r.tracking||''}" placeholder="เลขพัสดุ (Tracking)"><button onclick="saveO('${r.id}')">บันทึก</button></div>`).join('')||'ยังไม่มีออเดอร์'}</div>`}
+ catch(e){S.tok='';localStorage.tok='';return admin()}
+ const ps=await api('/rest/v1/products?order=name',{tok:S.tok});
+ $('#pl').innerHTML=`<div class="c"><input id="pn" placeholder="ชื่อสินค้า"><input id="pp" type="number" placeholder="ราคา"><input id="pi" placeholder="อีโมจิ หรือ URL รูป"><button onclick="addP()">เพิ่มสินค้า</button></div>`+ps.map(p=>`<div class="c" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span>${p.img&&!/^http/.test(p.img)?p.img:''} ${p.name} ฿${baht(p.price)}</span><button class="s" onclick="togP('${p.id}',${!p.active})">${p.active?'ซ่อน':'แสดง'}</button></div>`).join('')}
+window.login=async()=>{try{const r=await api('/auth/v1/token?grant_type=password',{method:'POST',json:{email:$('#ae').value,password:$('#ap').value}});S.tok=r.access_token;localStorage.tok=r.access_token;admin()}catch(e){$('#er').textContent=e.message}};
+window.saveO=async id=>{const t=$('#t'+id).value.trim();let s=$('#s'+id).value;if(t&&s!='done')s='shipped';
+ await api('/rest/v1/orders?id=eq.'+id,{method:'PATCH',json:{status:s,tracking:t},tok:S.tok});admin()};
+window.addP=async()=>{await api('/rest/v1/products',{method:'POST',tok:S.tok,json:{name:$('#pn').value,price:+$('#pp').value,img:$('#pi').value,active:true}});admin()};
+window.togP=async(id,a)=>{await api('/rest/v1/products?id=eq.'+id,{method:'PATCH',tok:S.tok,json:{active:a}});admin()};
+route();
+</script></body></html>
